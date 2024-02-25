@@ -2,6 +2,7 @@
 
 namespace GRE;
 use function pack, unpack;
+use function substr;
 
 const ETHER_TYPE_IPv4 = 0x0800;
 const ETHER_TYPE_IPv6 = 0x86DD;
@@ -92,13 +93,13 @@ function unpack_header(string $header): header {
   if ($key_present) {
     $unpacked->key =
       ($octets[++$offset] << 24) | ($octets[++$offset] << 16) |
-      ($octets[++$offset] << 8) | ($octets[++$offset]);
+      ($octets[++$offset] << 8)  | ($octets[++$offset]);
   }
 
   if ($sequence_present) {
     $unpacked->sequence_number =
       ($octets[++$offset] << 24) | ($octets[++$offset] << 16) |
-      ($octets[++$offset] << 8) | ($octets[++$offset]);
+      ($octets[++$offset] << 8)  | ($octets[++$offset]);
   }
 
   $unpacked->payload = substr($header, $offset);
