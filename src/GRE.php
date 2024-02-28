@@ -3,6 +3,7 @@
 namespace GRE;
 use function pack, unpack;
 use function substr;
+use function count, array_sum;
 
 const ETHER_TYPE_IPv4 = 0x0800;
 const ETHER_TYPE_IPv6 = 0x86DD;
@@ -46,6 +47,7 @@ function pack_header(header $header): string {
   $packed = pack("n2", $header_flags, $header->protocol_type);
 
   if ($header->checksum_present) {
+    $header->checksum = checksum($header);
     $packed .= pack("n2", $header->checksum, $header->reserved1);
   }
   if ($header->key_present) {
@@ -105,5 +107,48 @@ function unpack_header(string $header): header {
   $unpacked->payload = substr($header, $offset);
 
   return $unpacked;
+
+}
+
+/**
+ * @param header $header
+ * @return int
+ */
+function checksum(header $header): int {
+
+  $words    = [];  // uint16_t[]
+  $offset   = 0;   // int
+  $checksum = 0x0000;
+
+  $words[$offset] =
+    ($header->checksum_present << 15) | ($header->key_present << 13) |
+    ($header->sequence_present << 12) | ($header->reserved0   << 3)  |
+    $header->version_number;
+  $words[++$offset] = $header->protocol_type;
+  $words[++$offset] = $checksum;
+  $words[++$offset] = $header->reserved1;
+
+  if ($header->key_present) {
+    $words[++$offset] = ($header->key >> 16) & 0xffff;
+    $words[++$offset] = $header->key & 0xffff;
+  }
+
+  if ($header->sequence_present) {
+    $words[++$offset] = ($header->sequence_number >> 16) & 0xffff;
+    $words[++$offset] = $header->sequence_number & 0xffff;
+  }
+
+  $payload_octets = unpack("C*", $header->payload);
+
+  for ($i = 1; $i <= count($payload_octets); $i++) {
+    $words[++$offset] = ($payload_octets[$i] << 8) | @$payload_octets[++$i] ?? 0x00;
+  }
+
+  $checksum = array_sum($words);
+  while ($checksum >> 16) {
+    $checksum = ($checksum >> 16) + ($checksum & 0xffff);
+  }
+
+  return ~$checksum;
 
 }
